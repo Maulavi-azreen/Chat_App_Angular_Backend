@@ -5,13 +5,14 @@ const User = require('../models/userModel');
 // @route POST /api/chat
 // @access Private
 exports.accessChat = async (req, res) => {
-  const { userId } = req.body;
+  const { userId } = req.body; // The selected contact's user ID
 
   if (!userId) {
     return res.status(400).json({ message: 'UserId is required' });
   }
 
   try {
+    // Check if a chat already exists between the users
     let chat = await Chat.findOne({
       isGroupChat: false,
       $and: [
@@ -23,27 +24,30 @@ exports.accessChat = async (req, res) => {
       .populate('latestMessage');
 
     if (chat) {
-      return res.status(200).json(chat);
-    } else {
-      const chatData = {
-        chatName: 'sender',
-        isGroupChat: false,
-        users: [req.user._id, userId],
-      };
-
-      const createdChat = await Chat.create(chatData);
-
-      const fullChat = await Chat.findById(createdChat._id).populate(
-        'users',
-        '-password'
-      );
-
-      res.status(201).json(fullChat);
+      return res.status(200).json(chat); // Return the existing chat
     }
+
+    // Create a new chat if it doesn't exist
+    const chatData = {
+      chatName: 'sender',
+      isGroupChat: false,
+      users: [req.user._id, userId],
+    };
+
+    const createdChat = await Chat.create(chatData);
+
+    // Populate the created chat
+    const fullChat = await Chat.findById(createdChat._id).populate(
+      'users',
+      '-password'
+    );
+
+    res.status(201).json(fullChat); // Return the newly created chat
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // @desc Fetch all chats for the logged-in user
 // @route GET /api/chat
@@ -97,7 +101,7 @@ exports.createGroupChat = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 // @desc Rename a group chat
 // @route PUT /api/chat/group/rename
 // @access Private
