@@ -21,11 +21,24 @@ exports.accessChat = async (req, res) => {
       ],
     })
       .populate('users', '-password')
-      .populate('latestMessage');
+      .populate('latestMessage')
 
     if (chat) {
       return res.status(200).json(chat); // Return the existing chat
     }
+
+     // If a chat exists, update its chatName dynamically
+     if (chat) {
+      const otherUser = chat.users.find(
+        (u) => u._id.toString() !== req.user._id.toString()
+      );
+      if (otherUser) {
+        chat.chatName = otherUser.name;
+        await chat.save();
+      }
+      return res.status(200).json(chat);
+    }
+
 
     // Create a new chat if it doesn't exist
     const chatData = {
@@ -41,6 +54,15 @@ exports.accessChat = async (req, res) => {
       'users',
       '-password'
     );
+
+      // Update the chatName dynamically for the newly created chat
+    const otherUser = fullChat.users.find(
+      (u) => u._id.toString() !== req.user._id.toString()
+    );
+    if (otherUser) {
+      fullChat.chatName = otherUser.name;
+      await fullChat.save();
+    }
 
     res.status(201).json(fullChat); // Return the newly created chat
   } catch (error) {
