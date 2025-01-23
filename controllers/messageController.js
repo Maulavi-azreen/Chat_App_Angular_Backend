@@ -50,13 +50,43 @@ exports.getMessages = async (req, res) => {
   try {
     const messages = await Message.find({ chat: chatId })
       .populate('sender', 'name profilePic email')
-      .populate('chat');
+      .populate('chat')
+      .populate('replyTo');
 
     res.status(200).json(messages);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// @desc Get msg by ID
+// @route GET /api/message/:messageId
+// @access Private
+exports.getMessageById = async (req, res) => {
+  try {
+    const messageId = req.params.messageId;
+
+    // Fetch message and populate replyTo field
+    const message = await Message.findById(messageId)
+      .populate({
+        path: 'replyTo',
+        select: 'content sender createdAt', // Selecting only needed fields
+        populate: { path: 'sender', select: 'name email' } // Populate sender details too
+      })
+      .exec();
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    res.status(200).json(message);
+  } catch (error) {
+    console.error('Error fetching message by ID:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
 
 // @desc Mark a message as read by the user
 // @route PUT /api/message/read/:messageId
@@ -205,26 +235,43 @@ exports.replyToMessage = async (req, res) => {
   }
 
   try {
+    // Find the original message being replied to
     const originalMessage = await Message.findById(messageId);
 
     if (!originalMessage) {
-      return res.status(404).json({ message: 'Message not found' });
+      return res.status(404).json({ message: 'Original message not found' });
     }
 
+    // Create the reply message
     const replyMessage = new Message({
       content,
       sender: userId,
       chat: chatId,
-      replyTo: messageId,
+      replyTo: messageId, // Reference to the original message
     });
 
     await replyMessage.save();
 
-    res.status(201).json(replyMessage);
+    // Populate sender and replied message details
+    const populatedReply = await Message.findById(replyMessage._id)
+      .populate('sender', 'name pic email')
+      .populate('replyTo', 'content sender createdAt')
+      .exec();
+
+    res.status(201).json({
+      message: 'Reply sent successfully',
+      reply: {
+        ...populatedReply.toObject(),
+        replyContent: content,  // Include the reply content for easier frontend access
+        replyToContent: originalMessage.content, // Send the content of the original message
+      },
+    });
   } catch (error) {
+    console.error('Reply message error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // @desc React to a message
 // @route POST /api/message/react/:messageId
@@ -241,18 +288,21 @@ exports.reactToMessage = async (req, res) => {
       return res.status(404).json({ message: 'Message not found' });
     }
 
-    const existingReaction = message.reactions.find(
+    // Check if the user already reacted to the message
+    const existingReactionIndex = message.reactions.findIndex(
       (reaction) => reaction.userId.toString() === userId.toString()
     );
 
-    if (existingReaction) {
-      existingReaction.emoji = emoji; // Update existing reaction
+    if (existingReactionIndex !== -1) {
+      // Update the existing reaction
+      message.reactions[existingReactionIndex].emoji = emoji;
     } else {
+      // Add new reaction
       message.reactions.push({ userId, emoji });
     }
 
     await message.save();
-    res.status(200).json(message);
+    res.status(200).json({ message: 'Reaction updated', data: message });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

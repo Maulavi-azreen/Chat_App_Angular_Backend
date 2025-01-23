@@ -2,6 +2,7 @@ const express = require('express');
 const { 
     sendMessage, 
     getMessages, 
+    getMessageById,
     markAsRead,
     deleteMessage,
     editMessage, 
@@ -19,6 +20,7 @@ const router = express.Router();
 
 router.post('/', protect, sendMessage); // Send a message
 router.get('/:chatId', protect, getMessages); // Get all messages of a chat
+router.get('/:messageId',protect, getMessageById);
 router.put('/read/:messageId', protect, markAsRead); // Mark message as read
 router.delete('/delete/:chatId/:messageId', protect, deleteMessage);
 router.put('/edit/:messageId', protect, editMessage);
