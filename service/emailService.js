@@ -1,7 +1,12 @@
 const nodemailer = require("nodemailer");
 
 const sendEmail = async (to, subject, html) => {
-  try {
+    try {
+        // Check if 'to' is defined and not empty
+        if (!to || to.trim() === "") {
+          throw new Error("No recipients defined");
+        }
+        console.log("Sending email to:", to); // Log the recipient email
     const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',  // Gmail's SMTP host
         port: 587,  // Use port 587 for TLS
@@ -47,7 +52,24 @@ const generateWelcomeEmail = (name) => {
     `;
   };
 
+  // Generate OTP email template
+const generateOTPEmail = (otp) => {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="text-align: center; color: #4CAF50;">Password Reset OTP</h2>
+        <p>We received a request to reset your password. Use the following OTP to proceed:</p>
+        <h3 style="text-align: center; color: #4CAF50;">${otp}</h3>
+        <p>If you did not request this, please ignore this email.</p>
+        <p>Best regards,</p>
+        <p>The ChatMate Team</p>
+        <footer style="margin-top: 20px; text-align: center; font-size: 12px; color: #aaa;">
+          <p>© ${new Date().getFullYear()} ChatMate. All rights reserved.</p>
+        </footer>
+      </div>
+    `;
+  };
+
 // Export functions for reuse
 module.exports = {
-  sendEmail,generateWelcomeEmail
+  sendEmail,generateWelcomeEmail,generateOTPEmail
 };

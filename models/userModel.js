@@ -6,6 +6,7 @@ const userSchema = mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     profilePic: { type: String, default: 'default.png' },
+    otp: { type: String, default: null }, // OTP for password reset
   },
   { timestamps: true }
 );
