@@ -1,35 +1,42 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { sendEmail,generateWelcomeEmail}=require('../service/emailService')
 
 // @desc Register a new user
 // @route POST /api/auth/register
 // @access Public
 exports.registerUser = async (req, res) => {
-  const { name, email, password, confirmPassword} = req.body;
+  const { name, email, password, confirmPassword } = req.body;
 
   if (!name || !email || !password || !confirmPassword) {
     return res.status(400).json({ message: 'All fields are required' });
   }
-    // Validate if passwords match
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: 'Passwords do not match' });
-    }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ message: 'Passwords do not match' });
+  }
+
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
+    });
+
+    const emailContent = generateWelcomeEmail(user.name);
+    sendEmail(user.email, 'Welcome to Our App!', emailContent).then(() => {
+      console.log("Welcome email sent successfully");
+    }).catch(emailError => {
+      console.error("Error sending email:", emailError.message);
     });
 
     res.status(201).json({
@@ -38,7 +45,7 @@ exports.registerUser = async (req, res) => {
       email: user.email,
     });
   } catch (error) {
-    console.error("Error during user registration:", error.message);
+    console.error('Error during user registration:', error.message);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
