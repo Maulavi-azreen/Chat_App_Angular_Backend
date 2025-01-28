@@ -88,6 +88,37 @@ exports.fetchChats = async (req, res) => {
   }
 };
 
+// @desc Delete chat messages for the current user only
+// @route DELETE /api/chat/delete-messages
+// @access Private
+exports.deleteMessagesForUser = async (req, res) => {
+  const { chatId } = req.body;
+  const userId = req.user._id;  // Extract the logged-in user's ID from the request
+
+  if (!chatId) {
+    return res.status(400).json({ message: 'Chat ID is required' });
+  }
+
+  try {
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Add user ID to deletedForUsers array if not already present
+    if (!chat.deletedForUsers.includes(userId)) {
+      chat.deletedForUsers.push(userId);
+      await chat.save();
+    }
+
+    res.status(200).json({ message: 'Chat deleted for this user only' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
 // @desc Create a group chat
 // @route POST /api/chat/group
 // @access Private

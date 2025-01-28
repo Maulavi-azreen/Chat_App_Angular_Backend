@@ -7,6 +7,7 @@ const chatSchema = mongoose.Schema(
     users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     latestMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
     groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Only for group chats
+    deletedForUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]  // Track users who deleted the chat
   },
   { timestamps: true }
 );

@@ -1,17 +1,29 @@
 const mongoose = require("mongoose");
-require("dotenv").config();
+const dotenv = require("dotenv");
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
+// Load environment variables from .env file
+dotenv.config();
+
+// Log to check if environment variables are loaded correctly
+console.log("MONGO_URI:", process.env.MONGO_URI);
+
+const { MONGO_URI } = process.env;
+
+mongoose.set("strictQuery", true);
+
+const connectDB = () => {
+  mongoose
+    .connect(MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      dbName: "Chat_App",
+    })
+    .then(() => {
+      console.log("Successfully connected to MongoDB");
+    })
+    .catch((err) => {
+      console.error("Error connecting to MongoDB:", err);
     });
-    console.log("✅ MongoDB Connected");
-  } catch (error) {
-    console.error("❌ MongoDB Connection Failed:", error);
-    process.exit(1);
-  }
 };
 
 module.exports = connectDB;
