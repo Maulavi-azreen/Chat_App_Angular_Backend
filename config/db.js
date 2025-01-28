@@ -14,8 +14,8 @@ const connectDB = () => {
     .connect(MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds
-  socketTimeoutMS: 45000, // 45 seconds
+      serverSelectionTimeoutMS: 10000, // Wait for 10 seconds before timing out
+      socketTimeoutMS: 45000, // 45 seconds
     })
     .then(() => {
       console.log("Successfully connected to MongoDB");
