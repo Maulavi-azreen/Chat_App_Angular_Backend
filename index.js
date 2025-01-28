@@ -23,7 +23,7 @@ const app = express();
 
 // Configure CORS
 const corsOptions = {
-  origin: ["http://localhost:4200","chat-app-angular-frontend.vercel.app"], // Replace with the frontend's URL
+  origin: ["http://localhost:4200","https://chat-app-angular-frontend.vercel.app"], // Replace with the frontend's URL
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
   credentials: true, // Allow cookies or other credentials if required
   allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
