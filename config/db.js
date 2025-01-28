@@ -9,13 +9,13 @@ console.log("MONGO_URI:", process.env.MONGO_URI);
 
 const { MONGO_URI } = process.env;
 
-mongoose.set("strictQuery", true);
-
 const connectDB = () => {
   mongoose
     .connect(MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 seconds
+  socketTimeoutMS: 45000, // 45 seconds
     })
     .then(() => {
       console.log("Successfully connected to MongoDB");
