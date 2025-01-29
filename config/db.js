@@ -16,7 +16,7 @@ const connectDB = () => {
     .connect(MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      // dbName: "Chat_App",
+      dbName: "TestDB",
       connectTimeoutMS: 30000, 
     })
     .then(() => {
