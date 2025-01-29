@@ -14,8 +14,8 @@ mongoose.set("strictQuery", true);
 const connectDB = () => {
   mongoose
     .connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true,
       // dbName: "Chat_App",
     })
     .then(() => {
