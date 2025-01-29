@@ -5,45 +5,70 @@ const User = require('../models/userModel');
 // @route POST /api/chat
 // @access Private
 exports.accessChat = async (req, res) => {
-  const { userId } = req.body;
+  const { userId } = req.body; // The selected contact's user ID
 
   if (!userId) {
     return res.status(400).json({ message: 'UserId is required' });
   }
 
   try {
+    // Check if a chat already exists between the users
     let chat = await Chat.findOne({
       isGroupChat: false,
-      users: { $all: [req.user._id, userId] }, // Simpler condition
+      $and: [
+        { users: { $elemMatch: { $eq: req.user._id } } },
+        { users: { $elemMatch: { $eq: userId } } },
+      ],
     })
       .populate('users', '-password')
-      .populate('latestMessage');
+      .populate('latestMessage')
 
     if (chat) {
+      return res.status(200).json(chat); // Return the existing chat
+    }
+
+     // If a chat exists, update its chatName dynamically
+     if (chat) {
+      const otherUser = chat.users.find(
+        (u) => u._id.toString() !== req.user._id.toString()
+      );
+      if (otherUser) {
+        chat.chatName = otherUser.name;
+        await chat.save();
+      }
       return res.status(200).json(chat);
     }
 
-    // Create a new chat
-    const otherUser = await User.findById(userId); // Fetch other user's name
-    if (!otherUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
 
+    // Create a new chat if it doesn't exist
     const chatData = {
-      chatName: otherUser.name, // Set chatName at creation
+      chatName: 'sender',
       isGroupChat: false,
       users: [req.user._id, userId],
     };
 
-    const fullChat = await Chat.create(chatData);
-    await fullChat.populate('users', '-password'); // Populate in one step
+    const createdChat = await Chat.create(chatData);
 
-    res.status(201).json(fullChat);
+    // Populate the created chat
+    const fullChat = await Chat.findById(createdChat._id).populate(
+      'users',
+      '-password'
+    );
+
+      // Update the chatName dynamically for the newly created chat
+    const otherUser = fullChat.users.find(
+      (u) => u._id.toString() !== req.user._id.toString()
+    );
+    if (otherUser) {
+      fullChat.chatName = otherUser.name;
+      await fullChat.save();
+    }
+
+    res.status(201).json(fullChat); // Return the newly created chat
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 
 
 // @desc Fetch all chats for the logged-in user
@@ -51,7 +76,7 @@ exports.accessChat = async (req, res) => {
 // @access Private
 exports.fetchChats = async (req, res) => {
   try {
-    const chats = await Chat.find({ users: req.user._id })
+    const chats = await Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
       .populate('users', '-password')
       .populate('groupAdmin', '-password')
       .populate('latestMessage')
@@ -68,20 +93,23 @@ exports.fetchChats = async (req, res) => {
 // @access Private
 exports.deleteMessagesForUser = async (req, res) => {
   const { chatId } = req.body;
+  const userId = req.user._id;  // Extract the logged-in user's ID from the request
 
   if (!chatId) {
     return res.status(400).json({ message: 'Chat ID is required' });
   }
 
   try {
-    const chat = await Chat.findByIdAndUpdate(
-      chatId,
-      { $addToSet: { deletedForUsers: req.user._id } }, // Prevents duplicate entries
-      { new: true }
-    );
+    const chat = await Chat.findById(chatId);
 
     if (!chat) {
       return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Add user ID to deletedForUsers array if not already present
+    if (!chat.deletedForUsers.includes(userId)) {
+      chat.deletedForUsers.push(userId);
+      await chat.save();
     }
 
     res.status(200).json({ message: 'Chat deleted for this user only' });
@@ -101,15 +129,15 @@ exports.createGroupChat = async (req, res) => {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
+  const parsedUsers = JSON.parse(users);
+
+  if (parsedUsers.length < 2) {
+    return res.status(400).json({ message: 'A group chat must have at least 2 users' });
+  }
+
+  parsedUsers.push(req.user._id);
+
   try {
-    const parsedUsers = JSON.parse(users);
-
-    if (parsedUsers.length < 2) {
-      return res.status(400).json({ message: 'A group chat must have at least 2 users' });
-    }
-
-    parsedUsers.push(req.user._id); // Include the creator
-
     const groupChat = await Chat.create({
       chatName,
       users: parsedUsers,
@@ -167,18 +195,26 @@ exports.addToGroupChat = async (req, res) => {
   }
 
   try {
-    // Update chat by adding the user only if they are not already in the group
+    // Find the chat to check if the user is already in the group
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Check if the user already exists in the users array
+    if (chat.users.includes(userId)) {
+      return res.status(400).json({ message: 'User is already in the group' });
+    }
+
+    // Add the user to the group
     const updatedChat = await Chat.findByIdAndUpdate(
       chatId,
-      { $addToSet: { users: userId } }, // Prevents duplicate entries
+      { $push: { users: userId } },
       { new: true }
     )
       .populate('users', '-password')
       .populate('groupAdmin', '-password');
-
-    if (!updatedChat) {
-      return res.status(404).json({ message: 'Chat not found' });
-    }
 
     res.status(200).json(updatedChat);
   } catch (error) {

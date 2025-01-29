@@ -35,12 +35,12 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Log all incoming requests for debugging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log("Request Headers:", req.headers);
-  console.log("Request Body:", req.body);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+//   console.log("Request Headers:", req.headers);
+//   console.log("Request Body:", req.body);
+//   next();
+// });
 
 // Define routes
 app.use("/api/auth", authRoutes);
