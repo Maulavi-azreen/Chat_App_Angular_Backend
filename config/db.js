@@ -17,7 +17,7 @@ const connectDB = () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       // dbName: "Chat_App",
-      connectTimeoutMS: 3000, 
+      connectTimeoutMS: 30000, 
     })
     .then(() => {
       console.log("Successfully connected to MongoDB");
