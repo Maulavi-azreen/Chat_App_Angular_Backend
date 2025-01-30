@@ -92,8 +92,10 @@ exports.fetchChats = async (req, res) => {
 // @route DELETE /api/chat/delete-messages
 // @access Private
 exports.deleteMessagesForUser = async (req, res) => {
-  const { chatId } = req.body;
-  const userId = req.user._id;  // Extract the logged-in user's ID from the request
+  const chatId  = req.params.chatId; 
+  const userId = req.user._id;
+  console.log("Received Chat ID:", req.params.chatId);
+
 
   if (!chatId) {
     return res.status(400).json({ message: 'Chat ID is required' });
@@ -107,7 +109,7 @@ exports.deleteMessagesForUser = async (req, res) => {
     }
 
     // Add user ID to deletedForUsers array if not already present
-    if (!chat.deletedForUsers.includes(userId)) {
+    if (!chat.deletedForUsers.includes(userId.toString())) {
       chat.deletedForUsers.push(userId);
       await chat.save();
     }
@@ -155,10 +157,10 @@ exports.createGroupChat = async (req, res) => {
   }
 };
  
-// @desc Rename a group chat
+// @desc Rename a chat (both individual and group)
 // @route PUT /api/chat/group/rename
 // @access Private
-exports.renameGroupChat = async (req, res) => {
+exports.renameChat = async (req, res) => {
   const { chatId, chatName } = req.body;
 
   if (!chatId || !chatName) {
@@ -183,6 +185,7 @@ exports.renameGroupChat = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // @desc Add a user to a group chat
 // @route PUT /api/chat/group/add
