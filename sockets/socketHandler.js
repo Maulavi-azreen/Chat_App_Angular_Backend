@@ -21,6 +21,43 @@ exports.socketHandler = (io) => {
       console.log(`Check status for userId ${userId}:`, status);
       socket.emit('userStatus', { userId, status });
     });
+
+        // **Handle Sending Messages in Real-Time**
+    socket.on('sendMessage', async (data) => {
+      const { senderId, receiverId, chatId, message } = data;
+
+      if (!senderId || !receiverId || !chatId || !message) {
+        console.error('sendMessage event received with missing data.');
+        return;
+      }
+
+      try {
+        // Save the message in the database
+        const newMessage = new Message({
+          sender: senderId,
+          receiver: receiverId,
+          chat: chatId,
+          content: message,
+        });
+
+        const savedMessage = await newMessage.save();
+
+        // Populate sender and receiver details
+        await savedMessage.populate('sender', 'name avatar');
+        await savedMessage.populate('receiver', 'name avatar');
+
+        // Send message to receiver in real-time
+        const receiverSocketId = onlineUsers.get(receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('receiveMessage', savedMessage);
+        }
+
+        console.log(`Message sent from ${senderId} to ${receiverId}: ${message}`);
+      } catch (error) {
+        console.error('Error handling sendMessage event:', error);
+      }
+    });
+
   
 
 

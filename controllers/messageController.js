@@ -31,6 +31,8 @@ exports.sendMessage = async (req, res) => {
 
     // Update the chat's latestMessage field
     await Chat.findByIdAndUpdate(chatId, { latestMessage: fullMessage._id });
+      // Emit real-time message using Socket.IO
+      req.io.to(receiverId).emit('receiveMessage', savedMessage);
 
     res.status(201).json(fullMessage); // Return the created message
   } catch (error) {
