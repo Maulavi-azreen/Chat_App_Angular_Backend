@@ -7,38 +7,96 @@ const { io } = require('../sockets/socketHandler');
 // @route POST /api/message
 // @access Private
 // Pass io to the sendMessage function
+// exports.sendMessage = async (req, res) => {
+//   const { content, chatId } = req.body;
+
+//   if (!content || !chatId) {
+//     return res.status(400).json({ message: 'Content and chatId are required.' });
+//   }
+
+//   try {
+//     // Create the message
+//     const newMessage = {
+//       sender: req.user._id,
+//       content: content,
+//       chat: chatId,
+//     };
+
+//     const message = await Message.create(newMessage);
+
+//     // Populate sender and chat fields
+//     const fullMessage = await Message.findById(message._id)
+//       .populate('sender', 'name pic email')
+//       .populate('chat');
+
+//     // Update the chat's latestMessage field
+//     await Chat.findByIdAndUpdate(chatId, { latestMessage: fullMessage._id });
+//       // Emit real-time message using Socket.IO
+//       req.io.to(receiverId).emit('receiveMessage', savedMessage);
+
+//     res.status(201).json(fullMessage); // Return the created message
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
 exports.sendMessage = async (req, res) => {
   const { content, chatId } = req.body;
+  const senderId = req.user._id; // Get the sender ID
 
   if (!content || !chatId) {
-    return res.status(400).json({ message: 'Content and chatId are required.' });
+    return res.status(400).json({ message: "Content and chatId are required." });
   }
 
   try {
-    // Create the message
-    const newMessage = {
-      sender: req.user._id,
-      content: content,
+    // Create and save the message
+    const newMessage = new Message({
+      sender: senderId,
+      content,
       chat: chatId,
-    };
+    });
 
-    const message = await Message.create(newMessage);
+    const savedMessage = await newMessage.save();
 
     // Populate sender and chat fields
-    const fullMessage = await Message.findById(message._id)
-      .populate('sender', 'name pic email')
-      .populate('chat');
+    const fullMessage = await Message.findById(savedMessage._id)
+      .populate("sender", "name pic email")
+      .populate({
+        path: "chat",
+        populate: {
+          path: "users",
+          select: "name email profilePic",
+        },
+      });
 
-    // Update the chat's latestMessage field
+    // Update chat's latest message
     await Chat.findByIdAndUpdate(chatId, { latestMessage: fullMessage._id });
-      // Emit real-time message using Socket.IO
-      req.io.to(receiverId).emit('receiveMessage', savedMessage);
 
-    res.status(201).json(fullMessage); // Return the created message
+    // **Find the other user in the chat (receiver)**
+    const chat = await Chat.findById(chatId).populate("users", "_id");
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    // Find the receiver (the other participant in the chat)
+    const receiver = chat.users.find((user) => user._id.toString() !== senderId.toString());
+    const receiverId = receiver ? receiver._id.toString() : null;
+
+    // **Emit real-time message via Socket.IO**
+    if (receiverId) {
+      const io = req.app.get("io"); // Ensure `io` is available
+      const receiverSocketId = onlineUsers.get(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("receiveMessage", fullMessage);
+      }
+    }
+
+    res.status(201).json(fullMessage);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error sending message:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 
 
