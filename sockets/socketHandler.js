@@ -47,25 +47,32 @@ exports.socketHandler = (io) => {
     });
 
     // Typing Indicator
-    socket.on("typing", ({ chatId, userId }) => {
-      if (!chatId || !userId) {
-        console.error("typing event received with missing data.");
+    socket.on("typing", ({ chatId, senderId, senderName }) => {
+      console.log(`✍️ Received typing event:`, { chatId, senderId, senderName });
+      if (!chatId || !senderId || !senderName) {
+        console.error("❌ Typing event received with missing data.", { chatId, userId, userName });
         return;
       }
-
-      socket.to(chatId).emit("typing", { userId });
-      console.log(`User ${userId} is typing in chat ${chatId}`);
+    
+      console.log(`✍️ User ${senderName} (${senderId}) is typing in chat ${chatId}`);
+      
+      // Emit typing event to everyone in the chat (except the sender)
+      socket.to(chatId).emit("typing", { chatId, senderId, senderName });
     });
-
-    socket.on("stopTyping", ({ chatId, userId }) => {
-      if (!chatId || !userId) {
-        console.error("stopTyping event received with missing data.");
+    
+    socket.on("stopTyping", ({ chatId, senderId }) => {
+      if (!chatId || !senderId) {
+        console.error("❌ StopTyping event received with missing data.", { chatId, senderId });
         return;
       }
-
-      socket.to(chatId).emit("stopTyping", { userId });
-      console.log(`User ${userId} stopped typing in chat ${chatId}`);
+    
+      console.log(`🛑 User ${senderId} stopped typing in chat ${chatId}`);
+      
+      // Emit stopTyping event to everyone in the chat (except the sender)
+      socket.to(chatId).emit("stopTyping", { chatId, senderId });
     });
+
+  
 
     // Handle Disconnection
     socket.on("disconnect", () => {
