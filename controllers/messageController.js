@@ -39,18 +39,81 @@ const { io } = require('../sockets/socketHandler');
 //     res.status(500).json({ message: 'Server error', error: error.message });
 //   }
 // };
-exports.sendMessage = async (req, res) => {
-  const { content, chatId } = req.body;
-  const senderId = req.user._id; // Get the sender ID
+// exports.sendMessage = async (req, res) => {
+//   const { content, chatId } = req.body;
+//   const senderId = req.user._id; // Get the sender ID
 
-  if (!content || !chatId) {
+//   if (!content || !chatId) {
+//     return res.status(400).json({ message: "Content and chatId are required." });
+//   }
+
+//   try {
+//     // Create and save the message
+//     const newMessage = new Message({
+//       sender: senderId,
+//       content,
+//       chat: chatId,
+//     });
+
+//     const savedMessage = await newMessage.save();
+
+//     // Populate sender and chat fields
+//     const fullMessage = await Message.findById(savedMessage._id)
+//       .populate("sender", "name pic email")
+//       .populate({
+//         path: "chat",
+//         populate: {
+//           path: "users",
+//           select: "name email profilePic",
+//         },
+//       });
+
+//     // Update chat's latest message
+//     await Chat.findByIdAndUpdate(chatId, { latestMessage: fullMessage._id });
+
+//     // **Find the other user in the chat (receiver)**
+//     const chat = await Chat.findById(chatId).populate("users", "_id");
+//     if (!chat) {
+//       return res.status(404).json({ message: "Chat not found" });
+//     }
+
+//     // Find the receiver (the other participant in the chat)
+//     const receiver = chat.users.find((user) => user._id.toString() !== senderId.toString());
+//     const receiverId = receiver ? receiver._id.toString() : null;
+
+//     // **Emit real-time message via Socket.IO**
+//     if (receiverId) {
+//       const io = req.app.get("io"); // Ensure `io` is available
+//       const receiverSocketId = onlineUsers.get(receiverId);
+//       if (receiverSocketId) {
+//         io.to(receiverSocketId).emit("receiveMessage", fullMessage);
+//       }
+//     }
+
+//     res.status(201).json(fullMessage);
+//   } catch (error) {
+//     console.error("Error sending message:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+exports.sendMessage = async (req, res) => {
+  const { content, chatId, receiverId } = req.body;
+  const senderId = req.user._id;
+
+  if (!content || !chatId || !receiverId) {
     return res.status(400).json({ message: "Content and chatId are required." });
   }
+   // Log the request body to ensure the values are coming through correctly
+   console.log('Received message data:', { content, chatId, receiverId });
 
   try {
+     // Ensure that receiverId is being passed correctly
+     console.log("SenderId:", senderId);
+     console.log("ReceiverId:", receiverId);  // Log receiverId to verify
     // Create and save the message
     const newMessage = new Message({
-      sender: senderId,
+      sender: senderId,  // Sender's ID
+      receiver: receiverId,  // Receiver's ID
       content,
       chat: chatId,
     });
@@ -60,6 +123,7 @@ exports.sendMessage = async (req, res) => {
     // Populate sender and chat fields
     const fullMessage = await Message.findById(savedMessage._id)
       .populate("sender", "name pic email")
+      .populate("receiver", "name pic email")
       .populate({
         path: "chat",
         populate: {
@@ -71,23 +135,32 @@ exports.sendMessage = async (req, res) => {
     // Update chat's latest message
     await Chat.findByIdAndUpdate(chatId, { latestMessage: fullMessage._id });
 
-    // **Find the other user in the chat (receiver)**
+    // **Find the receiver (other participant in the chat)**
     const chat = await Chat.findById(chatId).populate("users", "_id");
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // Find the receiver (the other participant in the chat)
-    const receiver = chat.users.find((user) => user._id.toString() !== senderId.toString());
-    const receiverId = receiver ? receiver._id.toString() : null;
 
-    // **Emit real-time message via Socket.IO**
+    // **Emit real-time message using Socket.IO**
+    const io = req.app.get("io"); // Get io instance
+    const onlineUsers = io.onlineUsers; // Access the online users map
+
     if (receiverId) {
-      const io = req.app.get("io"); // Ensure `io` is available
       const receiverSocketId = onlineUsers.get(receiverId);
       if (receiverSocketId) {
+        console.log("receiver Socket Id",receiverSocketId);
         io.to(receiverSocketId).emit("receiveMessage", fullMessage);
+        console.log(`📩 Real-time message sent to user ${receiverId}`);
+      } else {
+        console.log(`User ${receiverId} is offline. Message will be delivered when they come online.`);
       }
+    }
+
+    // **Also notify the sender (in case they are using multiple devices)**
+    const senderSocketId = onlineUsers.get(senderId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("receiveMessage", fullMessage);
     }
 
     res.status(201).json(fullMessage);
@@ -96,10 +169,6 @@ exports.sendMessage = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
-
-
 
 // @desc Fetch all messages of a chat
 // @route GET /api/message/:chatId
