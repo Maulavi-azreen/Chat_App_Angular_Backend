@@ -97,7 +97,7 @@ const { io } = require('../sockets/socketHandler');
 //   }
 // };
 exports.sendMessage = async (req, res) => {
-  const { content, chatId, receiverId } = req.body;
+  const { content, chatId, receiverId,replyTo } = req.body;
   const senderId = req.user._id;
 
   if (!content || !chatId || !receiverId) {

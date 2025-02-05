@@ -24,6 +24,16 @@ exports.socketHandler = (io) => {
       socket.emit("userStatus", { userId, status });
     });
 
+     // ✅ Ensure users join the chat room when they open a chat
+     socket.on("joinChat", ({ chatId, userId }) => {
+      if (!chatId || !userId) {
+        console.error("❌ joinChat event missing data:", { chatId, userId });
+        return;
+      }
+      console.log(`🚀 User ${userId} joined chat room ${chatId}`);
+      socket.join(chatId); // ✅ Join the chat room
+    });
+
     // **Handle Receiving Messages**
     socket.on(" ", (message) => {
       const { receiverId } = message;
@@ -46,30 +56,46 @@ exports.socketHandler = (io) => {
       }
     });
 
-    // Typing Indicator
+    // ✅ Typing Indicator Fix
     socket.on("typing", ({ chatId, senderId, senderName }) => {
       console.log(`✍️ Received typing event:`, { chatId, senderId, senderName });
+
       if (!chatId || !senderId || !senderName) {
-        console.error("❌ Typing event received with missing data.", { chatId, userId, userName });
+        console.error("❌ Typing event received with missing data.", { chatId, senderId, senderName });
         return;
       }
-    
+
       console.log(`✍️ User ${senderName} (${senderId}) is typing in chat ${chatId}`);
-      
-      // Emit typing event to everyone in the chat (except the sender)
+
+      // ✅ Emit event to users in the chat room
       socket.to(chatId).emit("typing", { chatId, senderId, senderName });
+
+      // ✅ Also send to the specific receiver if online
+      for (const [userId, socketId] of onlineUsers.entries()) {
+        if (userId !== senderId) {
+          io.to(socketId).emit("typing", { chatId, senderId, senderName });
+        }
+      }
     });
-    
+
+    // ✅ Stop Typing Indicator Fix
     socket.on("stopTyping", ({ chatId, senderId }) => {
       if (!chatId || !senderId) {
         console.error("❌ StopTyping event received with missing data.", { chatId, senderId });
         return;
       }
-    
+
       console.log(`🛑 User ${senderId} stopped typing in chat ${chatId}`);
-      
-      // Emit stopTyping event to everyone in the chat (except the sender)
+
+      // ✅ Emit event to users in the chat room
       socket.to(chatId).emit("stopTyping", { chatId, senderId });
+
+      // ✅ Also send to the specific receiver if online
+      for (const [userId, socketId] of onlineUsers.entries()) {
+        if (userId !== senderId) {
+          io.to(socketId).emit("stopTyping", { chatId, senderId });
+        }
+      }
     });
 
   
